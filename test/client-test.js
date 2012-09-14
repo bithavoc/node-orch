@@ -85,4 +85,4 @@ vows.describe('Orch Run Args').addBatch({
       ]);
     }
   }
-}).run();
+}).export(module);

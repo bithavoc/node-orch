@@ -511,4 +511,4 @@ vows.describe('Orch Worker').addBatch({
     }
   }
 
-}).run();
+}).export(module);

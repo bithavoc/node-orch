@@ -1,7 +1,7 @@
 var orch = require('../index.js');
 var assert = require('assert');
 var vows = require('vows');
-var testSource = require('./test-source').Client;
+var testSource = require('./test-source');
 
 vows.describe('Orch Run Args').addBatch({
   "Having a client with no task source": {

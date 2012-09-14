@@ -2,7 +2,7 @@
 var orch = require('../index.js');
 var assert = require('assert');
 var vows = require('vows');
-var testSource = require('./test-source').Worker;
+var testSource = require('./test-source');
 var util = require('util');
 
 vows.describe('Orch Worker').addBatch({
@@ -35,7 +35,10 @@ vows.describe('Orch Worker').addBatch({
         source: source,
         worker: worker
       };
-      source.list.push({
+      worker.on('actionCompleted', function sourceNextCallback() {
+        return callback(null, result);
+      });
+      worker.source.enqueue({
         version: worker.protocolVersion,
         stack: [
           {
@@ -46,9 +49,6 @@ vows.describe('Orch Worker').addBatch({
             input: null
           }
         ]
-      });
-      worker.on('actionCompleted', function sourceNextCallback() {
-        return callback(null, result);
       });
       worker.start();
     }
@@ -113,7 +113,18 @@ vows.describe('Orch Worker').addBatch({
         source: source,
         worker: worker
       };
-      source.list.push({
+      var formatString = worker.register('format_string', function(context) {
+        var format = context.input.format;
+        var replacement = context.input.replacement;
+        return context.complete({
+          msg: util.format(format, replacement)
+        });
+      });
+      worker.on('actionCompleted', function sourceNextCallback() {
+        return callback(null, result);
+      });
+      worker.start();
+      worker.source.enqueue({
         version: worker.protocolVersion,
         stack: [
           {
@@ -128,17 +139,6 @@ vows.describe('Orch Worker').addBatch({
           }
         ]
       });
-      var formatString = worker.register('format_string', function(context) {
-        var format = context.input.format;
-        var replacement = context.input.replacement;
-        return context.complete({
-          msg: util.format(format, replacement)
-        });
-      });
-      worker.on('actionCompleted', function sourceNextCallback() {
-        return callback(null, result);
-      });
-      worker.start();
     }
     , "The source should have the task re-enqueued": function(result) {
       if(result.message) {
@@ -176,7 +176,18 @@ vows.describe('Orch Worker').addBatch({
         source: source,
         worker: worker
       };
-      source.list.push({
+      worker.register('reverse_format_string', function(context) {
+        return context.defer('reverse_string', {
+          str: context.input.format
+        }, "reverse_completed");
+      }).callback('reverse_completed', function(context) {
+        // never actually called, at least not in this test
+      });
+      worker.on('actionCompleted', function sourceNextCallback() {
+        return callback(null, result);
+      });
+      worker.start();
+      worker.source.enqueue({
         version: worker.protocolVersion,
         stack: [
           {
@@ -191,17 +202,6 @@ vows.describe('Orch Worker').addBatch({
           }
         ]
       });
-      worker.register('reverse_format_string', function(context) {
-        return context.defer('reverse_string', {
-          str: context.input.format
-        }, "reverse_completed");
-      }).callback('reverse_completed', function(context) {
-        // never actually called, at least not in this test
-      });
-      worker.on('actionCompleted', function sourceNextCallback() {
-        return callback(null, result);
-      });
-      worker.start();
     }
     , "The source should have the task re-enqueued": function(result) {
       if(result.message) {
@@ -250,21 +250,6 @@ vows.describe('Orch Worker').addBatch({
         source: source,
         worker: worker
       };
-      source.list.push({
-        version: worker.protocolVersion,
-        stack: [
-          {
-            action: 'print'
-          }
-          , {
-            action: 'reverse_format_string',
-            input: {
-              format: "s% olleH",
-              replacement: "World"
-            }
-          }
-        ]
-      });
       var reverseFormatString = worker.register('reverse_format_string', function(context) {
         return context.defer('reverse_string', {
           str: context.input.format
@@ -314,6 +299,21 @@ vows.describe('Orch Worker').addBatch({
         }
       });
       worker.start();
+      worker.source.enqueue({
+        version: worker.protocolVersion,
+        stack: [
+          {
+            action: 'print'
+          }
+          , {
+            action: 'reverse_format_string',
+            input: {
+              format: "s% olleH",
+              replacement: "World"
+            }
+          }
+        ]
+      });
     }
     , "The source should have the task re-enqueued": function(result) {
       if(result.message) {

@@ -64,13 +64,18 @@ vows.describe('Orch Run Args').addBatch({
       source.on('enqueue', function enqueue(task) {
         return callback(null, result);
       });
-      client.run("Foo", null, "FooCompleted");
+      client.connect(function(err) {
+        if(err) {
+          return callback(err);
+        }
+        client.run("Foo", null, "FooCompleted");
+      });
     }
     , "The task enqueued in the source should have the right stack, one call for the continuation and another for the action": function(result) {
       if(result.message) {
         assert.ifError(result);
       }
-      assert.deepEqual(result.source.list, [
+      assert.deepEqual(result.source._queues['Foo'].list, [
         {
           version: '1.1'
           , stack: [

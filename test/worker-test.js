@@ -24,63 +24,6 @@ vows.describe('Orch Worker').addBatch({
       });
     }
   }
-  , "When I start a worker with a task non existing operation and a receiver": {
-    topic: function() {
-      var callback = this.callback;
-      var worker = new orch.Worker();
-      worker.automaticFlow = false; // don't call next after processing a task.
-      var source = new testSource();
-      worker.source = source;
-      var result = {
-        source: source,
-        worker: worker
-      };
-      worker.on('actionCompleted', function sourceNextCallback() {
-        return callback(null, result);
-      });
-      worker.source.enqueue({
-        version: worker.protocolVersion,
-        stack: [
-          {
-            action: 'receive'
-          }
-          , {
-            action: 'generate',
-            input: null
-          }
-        ]
-      });
-      worker.start();
-    }
-    , "The source should have the task re-enqueued": function(result) {
-      if(result.message) {
-        assert.ifError(result);
-      }
-      assert.equal(result.source.list.length, 1);
-    }, "The task should have only the receiver with error ACTION_NOT_FOUND": function(result) {
-      if(result.message) {
-        assert.ifError(result);
-      }
-      var errorStack = result.source.list[0].stack[0].error.stack;
-      assert.ok(errorStack, "The error stack should not be empty");
-      assert.isString(errorStack, "The error stack should be an string");
-      assert.notEqual(errorStack.indexOf("The action 'generate' was not found"), -1, "The stack should contain the error message");
-      delete result.source.list[0].stack[0].error.stack;
-      assert.deepEqual(result.source.list, [
-        {
-          version: result.worker.protocolVersion,
-          stack: [{
-            action: 'receive',
-            error: {
-              code: "ACTION_NOT_FOUND",
-              msg: "The action 'generate' was not found",
-              count: 1
-            }
-          }]
-        }
-      ]);
-    }
-  }
   , "Having a root action registered": {
     topic: function() {
       var worker = new orch.Worker();
@@ -123,36 +66,40 @@ vows.describe('Orch Worker').addBatch({
       worker.on('actionCompleted', function sourceNextCallback() {
         return callback(null, result);
       });
-      worker.start();
-      worker.source.enqueue({
-        version: worker.protocolVersion,
-        stack: [
-          {
-            action: 'print'
-          }
-          , {
-            action: 'format_string',
-            input: {
-              format: "Hello %s",
-              replacement: "World"
+      worker.start(function(err) {
+        if(err) {
+          return callback(err);
+        }
+        worker.source.enqueue({
+          version: worker.protocolVersion,
+          stack: [
+            {
+              action: 'print'
             }
-          }
-        ]
+            , {
+              action: 'format_string',
+              input: {
+                format: "Hello %s",
+                replacement: "World"
+              }
+            }
+          ]
+        });
       });
     }
     , "The source should have the task re-enqueued": function(result) {
       if(result.message) {
         assert.ifError(result);
       }
-      assert.equal(result.source.list.length, 1);
+      assert.equal(result.source._queues['print'].list.length, 1);
     }
     , "The task should have only the receiver with input as the result of the generator": function(result) {
       if(result.message) {
         assert.ifError(result);
       }
-      var errorStack = result.source.list[0].stack[0].error || null;
+      var errorStack = result.source._queues['print'].list[0].stack[0].error || null;
       assert.isNull(errorStack, "The error should be empty");
-      assert.deepEqual(result.source.list, [
+      assert.deepEqual(result.source._queues['print'].list, [
         {
           version: result.worker.protocolVersion,
           stack: [{
@@ -186,36 +133,40 @@ vows.describe('Orch Worker').addBatch({
       worker.on('actionCompleted', function sourceNextCallback() {
         return callback(null, result);
       });
-      worker.start();
-      worker.source.enqueue({
-        version: worker.protocolVersion,
-        stack: [
-          {
-            action: 'print'
-          }
-          , {
-            action: 'reverse_format_string',
-            input: {
-              format: "s% olleH",
-              replacement: "World"
+      worker.start(function(err) {
+        if(err) {
+          return callback(err);
+        }
+        worker.source.enqueue({
+          version: worker.protocolVersion,
+          stack: [
+            {
+              action: 'print'
             }
-          }
-        ]
+            , {
+              action: 'reverse_format_string',
+              input: {
+                format: "s% olleH",
+                replacement: "World"
+              }
+            }
+          ]
+        });
       });
     }
     , "The source should have the task re-enqueued": function(result) {
       if(result.message) {
         assert.ifError(result);
       }
-      assert.equal(result.source.list.length, 1);
+      assert.equal(result.source._queues['reverse_string'].list.length, 1);
     }
     , "The task should have the receiver, the callback entry and the deferred entry in the stack": function(result) {
       if(result.message) {
         assert.ifError(result);
       }
-      var errorStack = result.source.list[0].stack[0].error || null;
+      var errorStack = result.source._queues['reverse_string'].list[0].stack[0].error || null;
       assert.isNull(errorStack, "The error should be empty");
-      assert.deepEqual(result.source.list, [
+      assert.deepEqual(result.source._queues['reverse_string'].list, [
         {
           version: result.worker.protocolVersion,
           stack: [{
@@ -243,7 +194,6 @@ vows.describe('Orch Worker').addBatch({
     topic: function() {
       var callback = this.callback;
       var worker = new orch.Worker();
-      worker.automaticFlow = false; // don't call next after processing a task.
       var source = new testSource();
       worker.source = source;
       var result = {
@@ -291,43 +241,44 @@ vows.describe('Orch Worker').addBatch({
       var c = 0;
       worker.on('actionCompleted', function sourceNextCallback() {
         c++;
-        if(c < 4) {
-          source.next(); // manually trigger the execution of the first callback
-        }
-        else if(c == 4) { // finish the test only when the first callback was processed
+        if(c == 4) { // finish the test only when the first callback was processed
           return callback(null, result);
         }
       });
-      worker.start();
-      worker.source.enqueue({
-        version: worker.protocolVersion,
-        stack: [
-          {
-            action: 'print'
-          }
-          , {
-            action: 'reverse_format_string',
-            input: {
-              format: "s% olleH",
-              replacement: "World"
+      worker.start(function(err) {
+        if(err) {
+          return callback(err);
+        }
+        worker.source.enqueue({
+          version: worker.protocolVersion,
+          stack: [
+            {
+              action: 'print'
             }
-          }
-        ]
+            , {
+              action: 'reverse_format_string',
+              input: {
+                format: "s% olleH",
+                replacement: "World"
+              }
+            }
+          ]
+        });
       });
     }
     , "The source should have the task re-enqueued": function(result) {
       if(result.message) {
         assert.ifError(result);
       }
-      assert.equal(result.source.list.length, 1);
+      assert.equal(result.source._queues['reverse_format_string#format_completed'].list.length, 1);
     }
     , "The task should have the receiver and the deferred entry for the second callback in the stack": function(result) {
       if(result.message) {
         assert.ifError(result);
       }
-      var errorStack = result.source.list[0].stack[0].error || null;
+      var errorStack =result.source._queues['reverse_format_string#format_completed'].list[0].stack[0].error || null;
       assert.isNull(errorStack);
-      assert.deepEqual(result.source.list, [
+      assert.deepEqual(result.source._queues['reverse_format_string#format_completed'].list, [
         {
           version: result.worker.protocolVersion,
           stack: [{
@@ -402,17 +353,26 @@ vows.describe('Orch Worker').addBatch({
           return callback(null, result);
         }
       });
-      client.run('reverse_format_string', {
+      worker.start(function(err) {
+        if(err) {
+          return callback(err);
+        }
+      });
+      client.connect(function(err) {
+        if(err) {
+          return callback(err);
+        }
+        client.run('reverse_format_string', {
           format: "s% olleH",
           replacement: "World"
         }, 'print');
-      worker.start();
+      });
     }
     , "The source should remain with no tasks": function(result) {
       if(result.message) {
         assert.ifError(result);
       }
-      assert.equal(result.source.list.length, 0);
+      assert.equal(result.source._queues['reverse_format_string'].list.length, 0);
     }
     , "The continuation task must be executed": function(result) {
       assert.equal(result.print, "Hello World");
@@ -447,16 +407,26 @@ vows.describe('Orch Worker').addBatch({
           return callback(null, result);
         }
       });
-      client.run('wrong_input', {
-        str: "hello"
-      }, 'print');
-      worker.start();
+      worker.start(function(err) {
+        if(err) {
+          return callback(err);
+        }
+      });
+      client.connect(function(err) {
+        if(err) {
+          return callback(err);
+        }
+        client.run('wrong_input', {
+          str: "hello"
+        }, 'print');
+      });
     }
     , "The source should remain with no tasks": function(result) {
       if(result.message) {
         assert.ifError(result);
       }
-      assert.equal(result.source.list.length, 0);
+      assert.equal(result.source._queues['wrong_input'].list.length, 0);
+      assert.equal(result.source._queues['print'].list.length, 0);
     }
     , "It should fail immediately and the receive should get the error": function(result) {
       assert.ok(result.resultError);
@@ -492,16 +462,25 @@ vows.describe('Orch Worker').addBatch({
           return callback(null, result);
         }
       });
-      client.run('wrong_input', {
-        str: "hello"
-      }, 'print');
-      worker.start();
+      worker.start(function(err) {
+        if(err) {
+          return callback(err);
+        }
+      });
+      client.connect(function(err) {
+        if(err) {
+          return callback(err);
+        }
+        client.run('wrong_input', {
+          str: "hello"
+        }, 'print');
+      });
     }
     , "The source should remain with no tasks": function(result) {
       if(result.message) {
         assert.ifError(result);
       }
-      assert.equal(result.source.list.length, 0);
+      assert.equal(result.source._queues['print'].list.length, 0);
     }
     , "It should fail after the retry count in the policy is reached": function(result) {
       assert.ok(result.resultError);

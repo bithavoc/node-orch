@@ -1,89 +1,97 @@
+"use strict";
+
 var orch = require('../index.js');
 var assert = require('assert');
 var vows = require('vows');
-var testSource = require('./test-source');
+var TestSource = require('./test-source');
 
 vows.describe('Orch Run Args').addBatch({
   "Having a client with no task source": {
-    topic: function() {
+    topic: function () {
       var client = new orch.Client();
       return {
         client: client
       };
-    }
-    , "When I try to run a function it should raise an error about the missing source": function(result) {
-      assert.throws(function (){
+    },
+    "When I try to run a function it should raise an error about the missing source": function (result) {
+      assert.throws(function () {
         result.client.run();
-      }, function(err) {
+      }, function (err) {
         return err.message === 'source of tasks is required by the orch client';
       });
     }
-  }
-  , "Having a client with a task source and invalid arguments for run": {
-    topic: function() {
-      var source = new testSource();
-      var client = new orch.Client();
+  },
+  "Having a client with a task source and invalid arguments for run": {
+    topic: function () {
+      var source,
+        client;
+      source = new TestSource();
+      client = new orch.Client();
       client.source = source;
       return {
         source: source,
         client: client
       };
-    }
-    , "When I try to run a task without action name": function(result) {
-      assert.throws(function (){
+    },
+    "When I try to run a task without action name": function (result) {
+      assert.throws(function () {
         result.client.run();
-      }, function(err) {
+      }, function (err) {
         return err.message === 'action name argument is required';
       });
-    }
-    , "When I try to run a task without action input": function(result) {
-      assert.throws(function (){
+    },
+    "When I try to run a task without action input": function (result) {
+      assert.throws(function () {
         result.client.run("Foo");
-      }, function(err) {
+      }, function (err) {
         return err.message === 'action input argument is required';
       });
-    }
-    , "When I try to run a task without action continuation": function(result) {
-      assert.throws(function (){
+    },
+    "When I try to run a task without action continuation": function (result) {
+      assert.throws(function () {
         result.client.run("Foo", null);
-      }, function(err) {
+      }, function (err) {
         return err.message === 'action continuation argument is required';
       });
     }
-  }
-  , "When I run a basic task with a continuation": {
-    topic: function() {
-      var callback = this.callback;
-      var source = new testSource();
-      var client = new orch.Client();
+  },
+  "When I run a basic task with a continuation": {
+    topic: function () {
+      var callback,
+        source,
+        client,
+        result;
+      callback = this.callback;
+      source = new TestSource();
+      client = new orch.Client();
       client.source = source;
-      var result =  {
+      result = {
         source: source,
         client: client
       };
       source.on('enqueue', function enqueue(task) {
         return callback(null, result);
       });
-      client.connect(function(err) {
-        if(err) {
+      client.connect(function (err) {
+        if (err) {
           return callback(err);
         }
         client.run("Foo", null, "FooCompleted");
       });
-    }
-    , "The task enqueued in the source should have the right stack, one call for the continuation and another for the action": function(result) {
-      if(result.message) {
+    },
+    "The task enqueued in the source should have the right stack, one call for the continuation and another for the action": function (result) {
+      if (result.message) {
         assert.ifError(result);
       }
-      assert.deepEqual(result.source._queues['Foo'].list, [
+      assert.deepEqual(result.source._queues.Foo.list, [
         {
-          version: '1.1'
-          , stack: [
+          version: '1.1',
+          stack: [
             {
               action: "FooCompleted"
             }, {
-              action: "Foo"
-              , input: null
+              action: "Foo",
+              input: null
             }
           ]
         }

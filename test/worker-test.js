@@ -1,64 +1,74 @@
+"use strict";
 
 var orch = require('../index.js');
 var assert = require('assert');
 var vows = require('vows');
-var testSource = require('./test-source');
+var TestSource = require('./test-source');
 var util = require('util');
 
 vows.describe('Orch Worker').addBatch({
   "Having a worker with no task source": {
-    topic: function() {
+    topic: function () {
       var worker = new orch.Worker();
       return {
         worker: worker
       };
-    }
-    , "When I try to run a function it should raise an error about the missing source": function(result) {
-      if(result.message) {
+    },
+    "When I try to run a function it should raise an error about the missing source": function (result) {
+      if (result.message) {
         assert.ifError(result);
       }
-      assert.throws(function (){
+      assert.throws(function () {
         result.worker.start();
-      }, function(err) {
+      }, function (err) {
         return err.message === 'source of tasks is required by the orch worker';
       });
     }
-  }
-  , "Having a root action registered": {
-    topic: function() {
-      var worker = new orch.Worker();
-      var rootOp = worker.register('rootOp', function(context) {
+  },
+  "Having a root action registered": {
+    topic: function () {
+      var worker,
+        rootOp,
+        cbOp;
+      worker = new orch.Worker();
+      rootOp = worker.register('rootOp', function (context) {
 
       });
-      var cbOp = rootOp.callback('cbOp', function(context) {
+      cbOp = rootOp.callback('cbOp', function (context) {
 
       });
       return {
         rootOp: rootOp,
         callback1: cbOp
-      }
-    }
-    , "The root operation should be marked as isRoot": function(result) {
+      };
+    },
+    "The root operation should be marked as isRoot": function (result) {
       assert.isTrue(result.rootOp.isRoot);
       assert.isFalse(result.rootOp.isCallback);
       assert.isTrue(result.callback1.isCallback);
       assert.isFalse(result.callback1.isRoot);
     }
-  }
-  , "When I start a worker with a task that generates an inmediate result followed by a receiver": {
-    topic: function() {
-      var callback = this.callback;
-      var worker = new orch.Worker();
+  },
+  "When I start a worker with a task that generates an inmediate result followed by a receiver": {
+    topic: function () {
+      var callback,
+        worker,
+        source,
+        result,
+        formatString;
+      callback = this.callback;
+      worker = new orch.Worker();
       worker.automaticFlow = false; // don't call next after processing a task.
-      var source = new testSource();
+      source = new TestSource();
       worker.source = source;
-      var result = {
+      result = {
         source: source,
         worker: worker
       };
-      var formatString = worker.register('format_string', function(context) {
-        var format = context.input.format;
-        var replacement = context.input.replacement;
+      formatString = worker.register('format_string', function (context) {
+        var format, replacement;
+        format = context.input.format;
+        replacement = context.input.replacement;
         return context.complete({
           msg: util.format(format, replacement)
         });
@@ -66,8 +76,8 @@ vows.describe('Orch Worker').addBatch({
       worker.on('actionCompleted', function sourceNextCallback() {
         return callback(null, result);
       });
-      worker.start(function(err) {
-        if(err) {
+      worker.start(function (err) {
+        if (err) {
           return callback(err);
         }
         worker.source.enqueue({
@@ -75,8 +85,7 @@ vows.describe('Orch Worker').addBatch({
           stack: [
             {
               action: 'print'
-            }
-            , {
+            }, {
               action: 'format_string',
               input: {
                 format: "Hello %s",
@@ -86,20 +95,20 @@ vows.describe('Orch Worker').addBatch({
           ]
         });
       });
-    }
-    , "The source should have the task re-enqueued": function(result) {
-      if(result.message) {
+    },
+    "The source should have the task re-enqueued": function (result) {
+      if (result.message) {
         assert.ifError(result);
       }
-      assert.equal(result.source._queues['print'].list.length, 1);
-    }
-    , "The task should have only the receiver with input as the result of the generator": function(result) {
-      if(result.message) {
+      assert.equal(result.source._queues.print.list.length, 1);
+    },
+    "The task should have only the receiver with input as the result of the generator": function (result) {
+      if (result.message) {
         assert.ifError(result);
       }
-      var errorStack = result.source._queues['print'].list[0].stack[0].error || null;
+      var errorStack = result.source._queues.print.list[0].stack[0].error || null;
       assert.isNull(errorStack, "The error should be empty");
-      assert.deepEqual(result.source._queues['print'].list, [
+      assert.deepEqual(result.source._queues.print.list, [
         {
           version: result.worker.protocolVersion,
           stack: [{
@@ -111,30 +120,34 @@ vows.describe('Orch Worker').addBatch({
         }
       ]);
     }
-  }
-  , "When I start a worker with a task that generates a deferred result followed by a receiver": {
-    topic: function() {
-      var callback = this.callback;
-      var worker = new orch.Worker();
+  },
+  "When I start a worker with a task that generates a deferred result followed by a receiver": {
+    topic: function () {
+      var callback,
+        worker,
+        source,
+        result;
+      callback = this.callback;
+      worker = new orch.Worker();
       worker.automaticFlow = false; // don't call next after processing a task.
-      var source = new testSource();
+      source = new TestSource();
       worker.source = source;
-      var result = {
+      result = {
         source: source,
         worker: worker
       };
-      worker.register('reverse_format_string', function(context) {
+      worker.register('reverse_format_string', function (context) {
         return context.defer('reverse_string', {
           str: context.input.format
         }, "reverse_completed");
-      }).callback('reverse_completed', function(context) {
+      }).callback('reverse_completed', function (context) {
         // never actually called, at least not in this test
       });
       worker.on('actionCompleted', function sourceNextCallback() {
         return callback(null, result);
       });
-      worker.start(function(err) {
-        if(err) {
+      worker.start(function (err) {
+        if (err) {
           return callback(err);
         }
         worker.source.enqueue({
@@ -142,8 +155,7 @@ vows.describe('Orch Worker').addBatch({
           stack: [
             {
               action: 'print'
-            }
-            , {
+            }, {
               action: 'reverse_format_string',
               input: {
                 format: "s% olleH",
@@ -153,77 +165,83 @@ vows.describe('Orch Worker').addBatch({
           ]
         });
       });
-    }
-    , "The source should have the task re-enqueued": function(result) {
-      if(result.message) {
+    },
+    "The source should have the task re-enqueued": function (result) {
+      if (result.message) {
         assert.ifError(result);
       }
-      assert.equal(result.source._queues['reverse_string'].list.length, 1);
-    }
-    , "The task should have the receiver, the callback entry and the deferred entry in the stack": function(result) {
-      if(result.message) {
+      assert.equal(result.source._queues.reverse_string.list.length, 1);
+    },
+    "The task should have the receiver, the callback entry and the deferred entry in the stack": function (result) {
+      if (result.message) {
         assert.ifError(result);
       }
-      var errorStack = result.source._queues['reverse_string'].list[0].stack[0].error || null;
+      var errorStack = result.source._queues.reverse_string.list[0].stack[0].error || null;
       assert.isNull(errorStack, "The error should be empty");
-      assert.deepEqual(result.source._queues['reverse_string'].list, [
+      assert.deepEqual(result.source._queues.reverse_string.list, [
         {
           version: result.worker.protocolVersion,
           stack: [{
             action: 'print'
-          }
-          , {
+          }, {
             action: 'reverse_format_string#reverse_completed',
             deferredInput: {
               format: "s% olleH",
               replacement: "World"
             }
-          }
-          , {
+          }, {
             action: 'reverse_string',
             input: {
               str: "s% olleH"
             }
-          }
-          ]
+          }]
         }
       ]);
     }
-  }
-  , "When I start a worker with a task that generates a chained deferred result followed by a receiver": {
-    topic: function() {
-      var callback = this.callback;
-      var worker = new orch.Worker();
-      var source = new testSource();
+  },
+  "When I start a worker with a task that generates a chained deferred result followed by a receiver": {
+    topic: function () {
+      var reverseFormatString,
+        worker,
+        source,
+        result,
+        callback,
+        c;
+      callback = this.callback;
+      worker = new orch.Worker();
+      source = new TestSource();
       worker.source = source;
-      var result = {
+      result = {
         source: source,
         worker: worker
       };
-      var reverseFormatString = worker.register('reverse_format_string', function(context) {
+      reverseFormatString = worker.register('reverse_format_string', function (context) {
         return context.defer('reverse_string', {
           str: context.input.format
         }, "reverse_completed");
       });
-      reverseFormatString.callback('reverse_completed', function(context) {
+      reverseFormatString.callback('reverse_completed', function (context) {
         return context.defer('format_string', {
           format: context.result.str, // use context.result to get the result of reverse_string.
           replacement: context.input.replacement // use context.input to get the deferred input(deferredInput internally) of the main operation(reverse_format_string in this case)
         }, 'format_completed');
       });
-      reverseFormatString.callback('format_completed', function(context) {
+      reverseFormatString.callback('format_completed', function (context) {
         return context.complete({
           str: context.result.msg,
           original_format: context.input.format
         });
       });
-      worker.register('reverse_string', function(context) {
-        var str = context.input.str;
-        var res = [];
-        var len = str.length;
-        for(var i = len; i >= 0; i--) {
-          var ni = len - i;
-          res[ni] = str[i];
+      worker.register('reverse_string', function (context) {
+        var str,
+          res,
+          len,
+          i;
+        str = context.input.str;
+        res = [];
+        len = str.length;
+        for (i = len; i >= 0; i -= 1) {
+          res[len - i] = str[i];
         }
         res = res.join('');
 
@@ -231,22 +249,23 @@ vows.describe('Orch Worker').addBatch({
           str: res
         });
       });
-      worker.register('format_string', function(context) {
-        var format = context.input.format;
-        var replacement = context.input.replacement;
+      worker.register('format_string', function (context) {
+        var format, replacement;
+        format = context.input.format;
+        replacement = context.input.replacement;
         return context.complete({
           msg: util.format(format, replacement)
         });
       });
-      var c = 0;
+      c = 0;
       worker.on('actionCompleted', function sourceNextCallback() {
-        c++;
-        if(c == 4) { // finish the test only when the first callback was processed
+        c += 1;
+        if (c === 4) { // finish the test only when the first callback was processed
           return callback(null, result);
         }
       });
-      worker.start(function(err) {
-        if(err) {
+      worker.start(function (err) {
+        if (err) {
           return callback(err);
         }
         worker.source.enqueue({
@@ -254,8 +273,8 @@ vows.describe('Orch Worker').addBatch({
           stack: [
             {
               action: 'print'
-            }
-            , {
+            },
+            {
               action: 'reverse_format_string',
               input: {
                 format: "s% olleH",
@@ -265,101 +284,116 @@ vows.describe('Orch Worker').addBatch({
           ]
         });
       });
-    }
-    , "The source should have the task re-enqueued": function(result) {
-      if(result.message) {
+    },
+    "The source should have the task re-enqueued": function (result) {
+      if (result.message) {
         assert.ifError(result);
       }
       assert.equal(result.source._queues['reverse_format_string#format_completed'].list.length, 1);
-    }
-    , "The task should have the receiver and the deferred entry for the second callback in the stack": function(result) {
-      if(result.message) {
+    },
+    "The task should have the receiver and the deferred entry for the second callback in the stack": function (result) {
+      if (result.message) {
         assert.ifError(result);
       }
-      var errorStack =result.source._queues['reverse_format_string#format_completed'].list[0].stack[0].error || null;
+      var errorStack = result.source._queues['reverse_format_string#format_completed'].list[0].stack[0].error || null;
       assert.isNull(errorStack);
-      assert.deepEqual(result.source._queues['reverse_format_string#format_completed'].list, [
-        {
-          version: result.worker.protocolVersion,
-          stack: [{
+      assert.deepEqual(result.source._queues['reverse_format_string#format_completed'].list, [{
+        version: result.worker.protocolVersion,
+        stack: [
+          {
             action: 'print'
           },
-          { 
-            action: 'reverse_format_string#format_completed', 
-            input: { msg: 'Hello World' }, 
-            deferredInput: { replacement: 'World', format: 's% olleH' } 
-          } 
-          ]
-        }
-      ]);
+          {
+            action: 'reverse_format_string#format_completed',
+            input: {
+              msg: 'Hello World'
+            },
+            deferredInput: {
+              replacement: 'World',
+              format: 's% olleH'
+            }
+          }
+        ]
+      }]);
     }
-  }
-  , "When I start a client and worker both with the same source configured with automaticFlow and I run an action": {
-    topic: function() {
-      var callback = this.callback;
-      var worker = new orch.Worker();
-      var client = new orch.Client();
-      var source = new testSource();
+  },
+  "When I start a client and worker both with the same source configured with automaticFlow and I run an action": {
+    topic: function () {
+      var callback,
+        worker,
+        client,
+        source,
+        result,
+        reverseFormatString;
+      callback = this.callback;
+      worker = new orch.Worker();
+      client = new orch.Client();
+      source = new TestSource();
       worker.source = source;
       client.source = source;
-      var result = {
+      result = {
         source: source,
         worker: worker
       };
-      var reverseFormatString = worker.register('reverse_format_string', function(context) {
+      reverseFormatString = worker.register('reverse_format_string', function (context) {
         return context.defer('reverse_string', {
           str: context.input.format
         }, "reverse_completed");
       });
-      reverseFormatString.callback('reverse_completed', function(context) {
+      reverseFormatString.callback('reverse_completed', function (context) {
         return context.defer('format_string', {
           format: context.result.str, // use context.result to get the result of reverse_string.
           replacement: context.input.replacement // use context.input to get the deferred input(deferredInput internally) of the main operation(reverse_format_string in this case)
         }, 'format_completed');
       });
-      reverseFormatString.callback('format_completed', function(context) {
+      reverseFormatString.callback('format_completed', function (context) {
         return context.complete({
           str: context.result.msg,
           original_format: context.input.format
         });
       });
-      worker.register('reverse_string', function(context) {
-        var str = context.input.str;
-        var res = [];
-        var len = str.length;
-        for(var i = len; i >= 0; i--) {
-          var ni = len - i;
-          res[ni] = str[i];
+      worker.register('reverse_string', function (context) {
+        var str,
+          res,
+          len,
+          i;
+        str = context.input.str;
+        res = [];
+        len = str.length;
+        for (i = len; i >= 0; i -= 1) {
+          res[len - i] = str[i];
         }
         res = res.join('');
         return context.complete({
           str: res
         });
       });
-      worker.register('format_string', function(context) {
-        var format = context.input.format;
-        var replacement = context.input.replacement;
+      worker.register('format_string', function (context) {
+        var format,
+          replacement;
+        format = context.input.format;
+        replacement = context.input.replacement;
         return context.complete({
           msg: util.format(format, replacement)
         });
       });
-      worker.register('print', function(context) {
+      worker.register('print', function (context) {
         result.print = context.input.str;
         result.original_format = context.input.original_format;
         return context.complete(null);
       });
       worker.on('actionCompleted', function sourceNextCallback(context) {
-        if(context.actionMeta.name == 'print') {
+        if (context.actionMeta.name === 'print') {
           return callback(null, result);
         }
       });
-      worker.start(function(err) {
-        if(err) {
+      worker.start(function (err) {
+        if (err) {
           return callback(err);
         }
       });
-      client.connect(function(err) {
-        if(err) {
+      client.connect(function (err) {
+        if (err) {
           return callback(err);
         }
         client.run('reverse_format_string', {
@@ -367,142 +401,159 @@ vows.describe('Orch Worker').addBatch({
           replacement: "World"
         }, 'print');
       });
-    }
-    , "The source should remain with no tasks": function(result) {
-      if(result.message) {
+    },
+    "The source should remain with no tasks": function (result) {
+      if (result.message) {
         assert.ifError(result);
       }
-      assert.equal(result.source._queues['reverse_format_string'].list.length, 0);
-    }
-    , "The continuation task must be executed": function(result) {
+      assert.equal(result.source._queues.reverse_format_string.list.length, 0);
+    },
+    "The continuation task must be executed": function (result) {
       assert.equal(result.print, "Hello World");
       assert.equal(result.original_format, "s% olleH");
     }
-  }
-  , "Having a worker with a registered operation that retries the same error continuously and have no retry policy": {
-    topic: function() {
-      var callback = this.callback;
-      var worker = new orch.Worker();
-      var client = new orch.Client();
-      var source = new testSource();
+  },
+  "Having a worker with a registered operation that retries the same error continuously and have no retry policy": {
+    topic: function () {
+      var callback,
+        worker,
+        client,
+        source,
+        result,
+        c;
+      callback = this.callback;
+      worker = new orch.Worker();
+      client = new orch.Client();
+      source = new TestSource();
 
       worker.source = source;
       client.source = source;
-      var result = {
+      result = {
         source: source,
         worker: worker
       };
-      worker.register('wrong_input', function(context) {
+      worker.register('wrong_input', function (context) {
         context.retry(new Error("Some error due wrong input"), 'WRONG_INPUT');
       });
-      worker.register('print', function(context) {
+      worker.register('print', function (context) {
         result.resultError = context.error; // the receive gets the error by using context.error
         return context.complete(null);
       });
-      var c = 0;
+      c = 0;
       worker.on('actionCompleted', function sourceNextCallback(context) {
-        c++;
-        if(c == 2) {
+        c += 1;
+        if (c ===  2) {
           // finish the test only when 'print' is executed.
           return callback(null, result);
         }
       });
-      worker.start(function(err) {
-        if(err) {
+      worker.start(function (err) {
+        if (err) {
           return callback(err);
         }
       });
-      client.connect(function(err) {
-        if(err) {
+      client.connect(function (err) {
+        if (err) {
           return callback(err);
         }
         client.run('wrong_input', {
           str: "hello"
         }, 'print');
       });
-    }
-    , "The source should remain with no tasks": function(result) {
-      if(result.message) {
+    },
+    "The source should remain with no tasks": function (result) {
+      if (result.message) {
         assert.ifError(result);
       }
-      assert.equal(result.source._queues['wrong_input'].list.length, 0);
-      assert.equal(result.source._queues['print'].list.length, 0);
-    }
-    , "It should fail immediately and the receive should get the error": function(result) {
+      assert.equal(result.source._queues.wrong_input.list.length, 0);
+      assert.equal(result.source._queues.print.list.length, 0);
+    },
+    "It should fail immediately and the receive should get the error": function (result) {
       assert.ok(result.resultError);
       assert.equal(result.resultError.msg, 'Some error due wrong input');
       assert.equal(result.resultError.code, 'WRONG_INPUT');
     }
-  }
-  , "Having a worker with a registered operation that retries the same error continuously based on retry policy": {
-    topic: function() {
-      var callback = this.callback;
-      var worker = new orch.Worker();
-      var client = new orch.Client();
-      var source = new testSource();
+  },
+  "Having a worker with a registered operation that retries the same error continuously based on retry policy": {
+    topic: function () {
+      var callback,
+        worker,
+        client,
+        source,
+        result,
+        c;
+      callback = this.callback;
+      worker = new orch.Worker();
+      client = new orch.Client();
+      source = new TestSource();
 
       worker.source = source;
       client.source = source;
-      var result = {
+      result = {
         source: source,
         worker: worker
       };
-      worker.register('wrong_input', function(context) {
+      worker.register('wrong_input', function (context) {
         context.retry(new Error("Some error due wrong input"), 'WRONG_INPUT');
       }).retry('WRONG_INPUT', 3);
-      worker.register('print', function(context) {
+      worker.register('print', function (context) {
         result.resultError = context.error; // the receive gets the error by using context.error
         return context.complete(null);
       });
-      var c = 0;
+      c = 0;
       worker.on('actionCompleted', function sourceNextCallback(context) {
-        c++;
-        if(c == 4) {
+        c += 1;
+        if (c ===  4) {
           // finish the test only when 'print' is executed.
           return callback(null, result);
         }
       });
-      worker.start(function(err) {
-        if(err) {
+      worker.start(function (err) {
+        if (err) {
           return callback(err);
         }
       });
-      client.connect(function(err) {
-        if(err) {
+      client.connect(function (err) {
+        if (err) {
           return callback(err);
         }
         client.run('wrong_input', {
           str: "hello"
         }, 'print');
       });
-    }
-    , "The source should remain with no tasks": function(result) {
-      if(result.message) {
+    },
+    "The source should remain with no tasks": function (result) {
+      if (result.message) {
         assert.ifError(result);
       }
-      assert.equal(result.source._queues['print'].list.length, 0);
-    }
-    , "It should fail after the retry count in the policy is reached": function(result) {
+      assert.equal(result.source._queues.print.list.length, 0);
+    },
+    "It should fail after the retry count in the policy is reached": function (result) {
       assert.ok(result.resultError);
       assert.equal(result.resultError.msg, 'Some error due wrong input');
       assert.equal(result.resultError.code, 'WRONG_INPUT');
       assert.equal(result.resultError.count, 3);
     }
-  }
-  , "Having a worker with an operation that passes vars to the callback": {
-    topic: function() {
-      var callback = this.callback;
-      var worker = new orch.Worker();
-      var client = new orch.Client();
-      var source = new testSource();
-
+  },
+  "Having a worker with an operation that passes vars to the callback": {
+    topic: function () {
+      var callback,
+        worker,
+        client,
+        source,
+        result,
+        c;
+      callback = this.callback;
+      worker = new orch.Worker();
+      client = new orch.Client();
+      source = new TestSource();
       worker.source = source;
       client.source = source;
-      var result = {
+      result = {
         source: source,
         worker: worker
       };
-      worker.register('hello_world', function(context) {
+      worker.register('hello_world', function (context) {
         this.message = "Hello World";
         return context.defer('message', null, 'cb');
       }).callback('cb', function cb(context) {
@@ -511,44 +562,44 @@ vows.describe('Orch Worker').addBatch({
           msg_vars: context.vars.message
         });
       });
-      worker.register('message', function(context) {
+      worker.register('message', function (context) {
         return context.complete({
           msg: 'foo'
         });
       });
-      worker.register('print', function(context) {
+      worker.register('print', function (context) {
         // set result.msg to this.message, it should be the same as context.vars
         result.msg = context.input.msg;
         result.msg_vars = context.input.msg_vars;
         return context.complete(null);
       });
-      var c = 0;
+      c = 0;
       worker.on('actionCompleted', function sourceNextCallback(context) {
-        c++;
-        if(c == 4) {
+        c += 1;
+        if (c === 4) {
           // finish the test only when 'print' is executed.
           return callback(null, result);
         }
       });
-      worker.start(function(err) {
-        if(err) {
+      worker.start(function (err) {
+        if (err) {
           return callback(err);
         }
       });
-      client.connect(function(err) {
-        if(err) {
+      client.connect(function (err) {
+        if (err) {
           return callback(err);
         }
         client.run('hello_world', null, 'print');
       });
-    }
-    , "The source should remain with no tasks": function(result) {
-      if(result.message) {
+    },
+    "The source should remain with no tasks": function (result) {
+      if (result.message) {
         assert.ifError(result);
       }
-      assert.equal(result.source._queues['print'].list.length, 0);
-    }
-    , "The callback should return the varariables of the main operation": function(result) {
+      assert.equal(result.source._queues.print.list.length, 0);
+    },
+    "The callback should return the varariables of the main operation": function (result) {
       assert.equal(result.msg, 'Hello World');
       assert.equal(result.msg_vars, 'Hello World');
     }

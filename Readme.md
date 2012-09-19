@@ -217,6 +217,32 @@ Worker output:
 	(Worker: Processing print)
 	Print: Houston, Internal Application Error!
 
+#### Sharing variables between Callbacks
+
+`contexts.vars` is the dictionary containing all the values shared between the main operation and the callbacks. Since the implementation function is bound to `context.vars`, you can also use `this` to set whatever variable you need.
+
+	...
+	// Operation: generate_message
+	var generateMessage = worker.register('generate_message', function generateMessage(context) {
+	  // set variable req_time, we will use it in the callbacks.
+	  this.req_time = new Date().toString();
+	  console.log("(Worker: Processing generate_message)");
+	  context.defer('format_string', {
+	    format: context.input.message,
+	    value: context.input.name
+	  }, 'formatted');
+	})
+	...
+	// Callback: generate_message#formatted
+	generateMessage.callback('formatted', function(context) {
+	  // here we use the variable req_time
+	  context.complete({
+	    msg: context.result.str + " " + this.req_time
+	  });
+	});
+
+Just like inputs and results, the variables need to be JSON friendly since they are serialized within the task document.
+
 ### Tests
 
     npm test

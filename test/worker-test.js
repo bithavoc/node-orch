@@ -489,5 +489,69 @@ vows.describe('Orch Worker').addBatch({
       assert.equal(result.resultError.count, 3);
     }
   }
+  , "Having a worker with an operation that passes vars to the callback": {
+    topic: function() {
+      var callback = this.callback;
+      var worker = new orch.Worker();
+      var client = new orch.Client();
+      var source = new testSource();
+
+      worker.source = source;
+      client.source = source;
+      var result = {
+        source: source,
+        worker: worker
+      };
+      worker.register('hello_world', function(context) {
+        this.message = "Hello World";
+        return context.defer('message', null, 'cb');
+      }).callback('cb', function cb(context) {
+        context.complete({
+          msg: (this.console && this.setInterval) ? undefined : this.message,
+          msg_vars: context.vars.message
+        });
+      });
+      worker.register('message', function(context) {
+        return context.complete({
+          msg: 'foo'
+        });
+      });
+      worker.register('print', function(context) {
+        // set result.msg to this.message, it should be the same as context.vars
+        result.msg = context.input.msg;
+        result.msg_vars = context.input.msg_vars;
+        return context.complete(null);
+      });
+      var c = 0;
+      worker.on('actionCompleted', function sourceNextCallback(context) {
+        c++;
+        if(c == 4) {
+          // finish the test only when 'print' is executed.
+          return callback(null, result);
+        }
+      });
+      worker.start(function(err) {
+        if(err) {
+          return callback(err);
+        }
+      });
+      client.connect(function(err) {
+        if(err) {
+          return callback(err);
+        }
+        client.run('hello_world', null, 'print');
+      });
+    }
+    , "The source should remain with no tasks": function(result) {
+      if(result.message) {
+        assert.ifError(result);
+      }
+      assert.equal(result.source._queues['print'].list.length, 0);
+    }
+    , "The callback should return the varariables of the main operation": function(result) {
+      assert.equal(result.msg, 'Hello World');
+      assert.equal(result.msg_vars, 'Hello World');
+    }
+  }
 
 }).export(module);

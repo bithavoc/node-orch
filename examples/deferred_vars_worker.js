@@ -19,10 +19,10 @@ var generateMessage = worker.register('generate_message', function generateMessa
     format: context.input.message,
     value: context.input.name
   }, 'formatted');
-})
+});
 
 // Callback: generate_message#formatted
-generateMessage.callback('formatted', function(context) {
+generateMessage.callback('formatted', function formatted(context) {
   // here we use the variable req_time
   context.complete({
     msg: context.result.str + " " + this.req_time

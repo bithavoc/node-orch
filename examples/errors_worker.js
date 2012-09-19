@@ -17,11 +17,11 @@ var generateMessage = worker.register('generate_message', function generateMessa
     format: null, // we intentionally pass null to cause the error in format_string
     value: context.input.name
   }, 'formatted');
-})
+});
 
 // Callback: generate_message#formatted
-generateMessage.callback('formatted', function(context) {
-  if(context.error) {
+generateMessage.callback('formatted', function formatted(context) {
+  if (context.error) {
     // here we handle the error of 'format_string'.
     return context.complete({
       msg: "Houston, Internal Application Error!"

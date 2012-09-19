@@ -17,10 +17,10 @@ var generateMessage = worker.register('generate_message', function generateMessa
     format: context.input.message,
     value: context.input.name
   }, 'formatted');
-})
+});
 
 // Callback: generate_message#formatted
-generateMessage.callback('formatted', function(context) {
+generateMessage.callback('formatted', function formatted(context) {
   context.complete({
     msg: context.result.str
   });

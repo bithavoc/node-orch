@@ -69,9 +69,9 @@ vows.describe('Orch Worker').addBatch({
         var format, replacement;
         format = context.input.format;
         replacement = context.input.replacement;
-        return context.complete({
+        return context.success({
           msg: util.format(format, replacement)
-        });
+        }, 'SUCCESS', 'The string was formatted successfully');
       });
       worker.on('actionCompleted', function sourceNextCallback() {
         return callback(null, result);
@@ -115,6 +115,10 @@ vows.describe('Orch Worker').addBatch({
             action: 'print',
             input: {
               msg: "Hello World"
+            },
+            status: {
+              code: 'SUCCESS',
+              msg: 'The string was formatted successfully'
             }
           }]
         }
@@ -245,17 +249,17 @@ vows.describe('Orch Worker').addBatch({
         }
         res = res.join('');
 
-        return context.complete({
+        return context.success({
           str: res
-        });
+        }, 'SUCCESS', 'String has been reversed');
       });
       worker.register('format_string', function (context) {
         var format, replacement;
         format = context.input.format;
         replacement = context.input.replacement;
-        return context.complete({
+        return context.success({
           msg: util.format(format, replacement)
-        });
+        }, 'SUCCESS', 'String has been formatted');
       });
       c = 0;
       worker.on('actionCompleted', function sourceNextCallback() {
@@ -308,6 +312,10 @@ vows.describe('Orch Worker').addBatch({
             input: {
               msg: 'Hello World'
             },
+            status: {
+              msg: "String has been formatted",
+              code: "SUCCESS"
+            },
             deferredInput: {
               replacement: 'World',
               format: 's% olleH'
@@ -347,10 +355,10 @@ vows.describe('Orch Worker').addBatch({
         }, 'format_completed');
       });
       reverseFormatString.callback('format_completed', function (context) {
-        return context.complete({
+        return context.success({
           str: context.result.msg,
           original_format: context.input.format
-        });
+        }, 'SUCCESS', 'String has been reversed and formatted');
       });
       worker.register('reverse_string', function (context) {
         var str,
@@ -364,23 +372,23 @@ vows.describe('Orch Worker').addBatch({
           res[len - i] = str[i];
         }
         res = res.join('');
-        return context.complete({
+        return context.success({
           str: res
-        });
+        }, 'SUCCESS', 'String has been reversed');
       });
       worker.register('format_string', function (context) {
         var format,
           replacement;
         format = context.input.format;
         replacement = context.input.replacement;
-        return context.complete({
+        return context.success({
           msg: util.format(format, replacement)
-        });
+        }, 'SUCCESS', 'String has been formatted');
       });
       worker.register('print', function (context) {
         result.print = context.input.str;
         result.original_format = context.input.original_format;
-        return context.complete(null);
+        return context.success(null, 'SUCCESS', 'Message has been printed');
       });
       worker.on('actionCompleted', function sourceNextCallback(context) {
         if (context.actionMeta.name === 'print') {
@@ -437,7 +445,7 @@ vows.describe('Orch Worker').addBatch({
       });
       worker.register('print', function (context) {
         result.resultError = context.status; // the receive gets the error by using context.error
-        return context.complete(null);
+        return context.success(null, 'SUCCESS', '');
       });
       c = 0;
       worker.on('actionCompleted', function sourceNextCallback(context) {
@@ -498,7 +506,7 @@ vows.describe('Orch Worker').addBatch({
       }).retry('WRONG_INPUT', 3);
       worker.register('print', function (context) {
         result.resultError = context.status; // the receive gets the error by using context.error
-        return context.complete(null);
+        return context.success(null, 'SUCCESS', 'Message has been printed');
       });
       c = 0;
       worker.on('actionCompleted', function sourceNextCallback(context) {
@@ -557,21 +565,21 @@ vows.describe('Orch Worker').addBatch({
         this.message = "Hello World";
         return context.defer('message', null, 'cb');
       }).callback('cb', function cb(context) {
-        context.complete({
+        context.success({
           msg: (this.console && this.setInterval) ? undefined : this.message,
           msg_vars: context.vars.message
-        });
+        }, 'SUCCESS', 'Said Hello World');
       });
       worker.register('message', function (context) {
-        return context.complete({
+        return context.success({
           msg: 'foo'
-        });
+        }, 'SUCCESS', 'Message has been printed');
       });
       worker.register('print', function (context) {
         // set result.msg to this.message, it should be the same as context.vars
         result.msg = context.input.msg;
         result.msg_vars = context.input.msg_vars;
-        return context.complete(null);
+        return context.success(null, 'SUCCESS', 'Message has been printed');
       });
       c = 0;
       worker.on('actionCompleted', function sourceNextCallback(context) {

@@ -12,9 +12,9 @@ worker.source = new OrchAMQP({
 
 worker.register('generate_message', function generateMessage(context) {
   console.log("(Worker: Processing generate_message)");
-  context.complete({
+  context.success({
     msg: util.format(context.input.message, context.input.name)
-  });
+  }, 'SUCCESS', 'Message has been generated');
 });
 
 worker.start(function workerStartCompleted(err) {

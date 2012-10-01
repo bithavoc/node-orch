@@ -23,9 +23,9 @@ var generateMessage = worker.register('generate_message', function generateMessa
 generateMessage.callback('formatted', function formatted(context) {
   if (context.status.code != 'SUCCESS') {
     // here we handle the error of 'format_string'.
-    return context.complete({
+    return context.success({
       msg: "Houston, Internal Application Error!"
-    });
+    }, 'ERROR', "Some error came up");
   }
   context.complete({
     msg: context.result.str
@@ -47,7 +47,7 @@ worker.register('format_string', function formatString(context) {
 worker.register('print', function print(context) {
   console.log("(Worker: Processing print)");
   console.log("Print: %s", context.input.msg);
-  context.complete(null);
+  context.success(null, 'SUCCESS', 'Message has ben printed');
 });
 
 worker.start(function workerStartCompleted(err) {

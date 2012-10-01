@@ -21,24 +21,24 @@ var generateMessage = worker.register('generate_message', function generateMessa
 
 // Callback: generate_message#formatted
 generateMessage.callback('formatted', function formatted(context) {
-  context.complete({
+  context.success({
     msg: context.result.str
-  });
+  }, 'SUCCESS', 'Message has been generated');
 });
 
 // Operation: format_string
 worker.register('format_string', function formatString(context) {
   console.log("(Worker: Processing format_string)");
-  context.complete({
+  context.success({
     str: util.format(context.input.format, context.input.value)
-  });
+  }, 'SUCCESS', 'Message has been formatted');
 });
 
 // Operation: print
 worker.register('print', function print(context) {
   console.log("(Worker: Processing print)");
   console.log("Print: %s", context.input.msg);
-  context.complete(null);
+  context.success(null, 'SUCCESS', '');
 });
 
 worker.start(function workerStartCompleted(err) {

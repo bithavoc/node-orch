@@ -13,7 +13,7 @@ worker.source = new OrchAMQP({
 worker.register('print', function print(context) {
   console.log("(Worker: Processing print)");
   console.log("Print: %s", context.input.msg);
-  context.complete(null);
+  context.success(null, 'SUCCESS', 'Message has been printed');
 });
 
 worker.start(function workerStartCompleted(err) {

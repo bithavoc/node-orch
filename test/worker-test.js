@@ -436,7 +436,7 @@ vows.describe('Orch Worker').addBatch({
         context.retry(new Error("Some error due wrong input"), 'WRONG_INPUT');
       });
       worker.register('print', function (context) {
-        result.resultError = context.error; // the receive gets the error by using context.error
+        result.resultError = context.status; // the receive gets the error by using context.error
         return context.complete(null);
       });
       c = 0;
@@ -497,7 +497,7 @@ vows.describe('Orch Worker').addBatch({
         context.retry(new Error("Some error due wrong input"), 'WRONG_INPUT');
       }).retry('WRONG_INPUT', 3);
       worker.register('print', function (context) {
-        result.resultError = context.error; // the receive gets the error by using context.error
+        result.resultError = context.status; // the receive gets the error by using context.error
         return context.complete(null);
       });
       c = 0;

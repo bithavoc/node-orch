@@ -21,7 +21,7 @@ var generateMessage = worker.register('generate_message', function generateMessa
 
 // Callback: generate_message#formatted
 generateMessage.callback('formatted', function formatted(context) {
-  if (context.error) {
+  if (context.status.code != 'SUCCESS') {
     // here we handle the error of 'format_string'.
     return context.complete({
       msg: "Houston, Internal Application Error!"

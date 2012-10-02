@@ -231,10 +231,10 @@ vows.describe('Orch Worker').addBatch({
         }, 'format_completed');
       });
       reverseFormatString.callback('format_completed', function (context) {
-        return context.complete({
+        return context.success({
           str: context.result.msg,
           original_format: context.input.format
-        });
+        }, "SUCCESS", "String reversed and formatted");
       });
       worker.register('reverse_string', function (context) {
         var str,
@@ -610,6 +610,54 @@ vows.describe('Orch Worker').addBatch({
     "The callback should return the varariables of the main operation": function (result) {
       assert.equal(result.msg, 'Hello World');
       assert.equal(result.msg_vars, 'Hello World');
+    }
+  },
+  "Having a worker with an operation that delays the completation for 1 second": {
+    topic: function () {
+      var callback,
+        worker,
+        client,
+        source,
+        result;
+      callback = this.callback;
+      worker = new orch.Worker();
+      client = new orch.Client();
+      source = new TestSource();
+      worker.source = source;
+      client.source = source;
+      result = {
+        source: source,
+        worker: worker,
+        time: new Date().getTime()
+      };
+      worker.register('delay_hello_world', function (context) {
+        return context.delay(500).success(null, 'SUCCESS', 'The response was delayed');
+      });
+      worker.on('actionCompleted', function sourceNextCallback(context) {
+        return callback(null, result);
+      });
+      worker.start(function (err) {
+        if (err) {
+          return callback(err);
+        }
+      });
+      client.connect(function (err) {
+        if (err) {
+          return callback(err);
+        }
+        client.run('delay_hello_world', null);
+      });
+    },
+    "The source should remain with no tasks": function (result) {
+      if (result.message) {
+        assert.ifError(result);
+      }
+      assert.equal(result.source._queues.delay_hello_world.list.length, 0);
+    },
+    "The completion should come 1 second later": function (result) {
+      var completionTime = new Date().getTime();
+      var time = completionTime - result.time;
+      assert.ok(time > 500, util.format("Expected the completion time to be exactly or more than 500 ms but %sms was calculated", time));
     }
   }
 

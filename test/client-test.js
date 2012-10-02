@@ -46,13 +46,6 @@ vows.describe('Orch Run Args').addBatch({
       }, function (err) {
         return err.message === 'action input argument is required';
       });
-    },
-    "When I try to run a task without action continuation": function (result) {
-      assert.throws(function () {
-        result.client.run("Foo", null);
-      }, function (err) {
-        return err.message === 'action continuation argument is required';
-      });
     }
   },
   "When I run a basic task with a continuation": {

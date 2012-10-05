@@ -4,6 +4,7 @@ Orch.js: RCP Orchestration Library (or the bastard son of Delayed Jobs and RCP).
 
 ### Features
 
+* Request/Reply RPC
 * Durable tasks
 * Fire & Forget operations
 * Dynamic Workflow-like execution
@@ -59,11 +60,11 @@ Operations are implemented as functions along with the action to respond. Each w
 
 **Worker #0**. This worker implements the operation *generate_message*:
 
-    worker.register('generate_message', function generateMessage(context) {
+	worker.register('generate_message', function generateMessage(context) {
 	  console.log("(Worker: Processing generate_message)");
-	  context.complete({
+	  context.success({
 	    msg: util.format(context.input.message, context.input.name)
-	  });
+	  }, 'SUCCESS', 'Message has been generated');
 	});
 
 See full source code at: [examples/hello\_world\_generate\_message.js](https://github.com/firebaseco/node-orch/blob/master/examples/hello_world_generate_message.js)
@@ -74,11 +75,11 @@ Once you run this worker, you will see how another queue was created to hold the
 
 **Worker #1**: This worker implements the operation *print*:
 
-    worker.register('print', function print(context) {
-      console.log("(Worker: Processing print)");
-      console.log("Print: %s", context.input.msg);
-      context.complete(null);
-    });
+	worker.register('print', function print(context) {
+	  console.log("(Worker: Processing print)");
+	  console.log("Print: %s", context.input.msg);
+	  context.success(null, 'SUCCESS', 'Message has been printed');
+	});
 
 See full source code at: [examples/hello\_world\_print.js](https://github.com/firebaseco/node-orch/blob/master/examples/hello_world_print.js)
 
@@ -105,7 +106,6 @@ Example: Because string formatting is an operation that can be reused easily, wi
 
 This is how we implement it:
 
-
 	// Operation: generate_message
 	var generateMessage = worker.register('generate_message', function generateMessage(context) {
 	  console.log("(Worker: Processing generate_message)");
@@ -113,32 +113,32 @@ This is how we implement it:
 	    format: context.input.message,
 	    value: context.input.name
 	  }, 'formatted');
-	})
+	});
 
 	// Callback: generate_message#formatted
-	generateMessage.callback('formatted', function(context) {
-	  context.complete({
+	generateMessage.callback('formatted', function formatted(context) {
+	  context.success({
 	    msg: context.result.str
-	  });
+	  }, 'SUCCESS', 'Message has been generated');
 	});
 
 	// Operation: format_string
 	worker.register('format_string', function formatString(context) {
 	  console.log("(Worker: Processing format_string)");
-	  context.complete({
+	  context.success({
 	    str: util.format(context.input.format, context.input.value)
-	  });
+	  }, 'SUCCESS', 'Message has been formatted');
 	});
 
 	// Operation: print
 	worker.register('print', function print(context) {
 	  console.log("(Worker: Processing print)");
 	  console.log("Print: %s", context.input.msg);
-	  context.complete(null);
+	  context.success(null, 'SUCCESS', '');
 	});
 
 
-See full source code at: [examples/deferred_worker.js](https://github.com/firebaseco/node-orch/blob/master/examples/deferred_worker.js)
+See full source code at: [examples/deferred\_worker.js](https://github.com/firebaseco/node-orch/blob/master/examples/deferred_worker.js)
 
 Worker Output:
 
@@ -151,31 +151,31 @@ Worker Output:
 
 You can use `context.fail` to immediately report errors as result.
 
-    // (Callback as the error handler)
-	generateMessage.callback('formatted', function(context) {
-	  if(context.error) {
+	// Callback: generate_message#formatted
+	generateMessage.callback('formatted', function formatted(context) {
+	  if (context.status.code != 'SUCCESS') {
 	    // here we handle the error of 'format_string'.
-	    return context.complete({
+	    return context.success({
 	      msg: "Houston, Internal Application Error!"
-	    });
+	    }, 'ERROR', "Some error came up");
 	  }
 	  context.complete({
 	    msg: context.result.str
 	  });
 	});
 
-	// (Operation as the error generator)
+	// Operation: format_string
 	worker.register('format_string', function formatString(context) {
 	  console.log("(Worker: Processing format_string)");
 	  if (!context.input.format) {
-	    return context.fail(new Error('The format string is not valid'), 'INVALID_FORMAT_STRING');
+	    return context.retry(new Error('The format string is not valid'), 'INVALID_FORMAT_STRING');
 	  }
 	  context.complete({
 	    str: util.format(context.input.format, context.input.value)
 	  });
 	});
 
-See full source code at: [examples/errors_worker.js](https://github.com/firebaseco/node-orch/blob/master/examples/errors_worker.js)
+See full source code at: [examples/errors\_worker.js](https://github.com/firebaseco/node-orch/blob/master/examples/errors_worker.js)
 
 Worker output:
 
@@ -196,6 +196,7 @@ The error structure contains:
 
 Some of errors are caused due unavailability of external resources and can be retried later when they are available. To specify the number of times you want to retry in case of certain error, you can use `ActionMeta.retry` at the moment you register the operation and `context.retry` in the implementation of the action:
 
+	// Operation: format_string
 	worker.register('format_string', function formatString(context) {
 	  console.log("(Worker: Processing format_string)");
 	  if (!context.input.format) {
@@ -207,6 +208,8 @@ Some of errors are caused due unavailability of external resources and can be re
 	}).retry('INVALID_FORMAT_STRING', 3);
 
 When the retry limit is reached, `context.fail` will be called for you.
+
+See full source code at: [examples/retry\_worker.js](https://github.com/firebaseco/node-orch/blob/master/examples/retry_worker.js)
 
 Worker output:
 
@@ -236,12 +239,29 @@ Worker output:
 	// Callback: generate_message#formatted
 	generateMessage.callback('formatted', function(context) {
 	  // here we use the variable req_time
-	  context.complete({
+	  context.success({
 	    msg: context.result.str + " " + this.req_time
-	  });
+	  }, 'SUCCESS', 'Completed!');
 	});
 
 Just like inputs and results, the variables need to be JSON friendly since they are serialized within the task document.
+
+#### Performing Distributed RPC Calls
+
+You can wait for a task to complete and get the results by performing the task in RPC mode.
+
+	...
+	client.enableRpc = true;
+	...
+	// Generate a Message and then Print it.
+	client.rpc('generate_message', {
+	    message: "Hello %s",
+	    name: "John Doe"
+	  }, function rpcCompleted(err, context) {
+	  assert.ifError(err);
+	  console.log("Result", context.result);
+	});
+
 
 ### Tests
 
@@ -249,7 +269,6 @@ Just like inputs and results, the variables need to be JSON friendly since they 
 
 ### What's next? (TODO)
 
-* Notifications. This could be very help for Web API's that might wait for a task to be completed before timeout.
 * Logging. A separate queue fed by AMQP Fanout exchange with bindings for all actions.
 * Using the same logging mechanism, create a CLI tool to see the progress of a task across the queues. Breakpoints can be implemented as a pseudo-worker that takes the message without doing any ACK. We might need modify the specification to add a *taskId* property.
 

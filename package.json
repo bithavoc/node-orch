@@ -2,7 +2,8 @@
   "author": "Firebase.co <npm@firebase.co> (http://www.firebase.co/)",
   "name": "orch",
   "description": "Distributed RCP Orchestration Library for Node.js",
-  "version": "0.1.1",
+  "keywords": "RabbitMQ, AMQP, Queue, RPC, Distributed RPC, Distributed",
+  "version": "0.1.2",
   "homepage": "http://www.firebase.co",
   "repository": {
     "type": "git",

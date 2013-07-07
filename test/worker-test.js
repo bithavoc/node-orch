@@ -657,7 +657,7 @@ vows.describe('Orch Worker').addBatch({
     "The completion should come 1 second later": function (result) {
       var completionTime = new Date().getTime();
       var time = completionTime - result.time;
-      assert.ok(time > 500, util.format("Expected the completion time to be exactly or more than 500 ms but %sms was calculated", time));
+      assert.ok(time > 450, util.format("Expected the completion time to be exactly or more than 500 ms but %sms was calculated", time));
     }
   }
 

@@ -17,7 +17,7 @@
     "hat": "0.0.3"
   },
   "devDependencies": {
-    "vows": "0.6.x"
+    "vows": "0.7.x"
   },
   "engines": {
     "node": ">= 0.6.x"

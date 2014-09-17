@@ -28,37 +28,318 @@
     <div id="content-wrapper">
       <div class="inner clearfix">
         <section id="main-content">
-          <h3>
-<a name="welcome-to-github-pages" class="anchor" href="#welcome-to-github-pages"><span class="octicon octicon-link"></span></a>Welcome to GitHub Pages.</h3>
+          <h2>
+<a name="orchjs" class="anchor" href="#orchjs"><span class="octicon octicon-link"></span></a>Orch.js</h2>
 
-<p>This automatic page generator is the easiest way to create beautiful pages for all of your projects. Author your page content here using GitHub Flavored Markdown, select a template crafted by a designer, and publish. After your page is generated, you can check out the new branch:</p>
+<p>Orch.js: RCP Orchestration Library (or the bastard son of Delayed Jobs and RCP).</p>
 
-<pre><code>$ cd your_repo_root/repo_name
-$ git fetch origin
-$ git checkout gh-pages
+<h3>
+<a name="features" class="anchor" href="#features"><span class="octicon octicon-link"></span></a>Features</h3>
+
+<ul>
+<li>Request/Reply RPC</li>
+<li>Durable tasks</li>
+<li>Fire &amp; Forget operations</li>
+<li>Dynamic Workflow-like execution</li>
+<li>Nested calls and Callbacks</li>
+<li>Error Handling / Retry Support</li>
+<li>Granular Scaling</li>
+<li>AMQP Support (RabbitMQ)</li>
+</ul><h3>
+<a name="how-it-works" class="anchor" href="#how-it-works"><span class="octicon octicon-link"></span></a>How it Works</h3>
+
+<ul>
+<li>A JSON document called <em>task</em> contains an stack of actions to be performed. The initial task only contain one or two actions. Other actions can be added dynamically by the execution of initial seed of actions.</li>
+<li>Every action generates a result that will be used as the input of the next action creating a simple but effective workflow-like orchestration of operations until there is no action to perform in the task.</li>
+<li>Queues matching the name of the next action will hold the task to be executed, a worker will listen to the queue and pick up the task as they arrive and perform one action, enqueue the task again in the same queue (recursion/loops) or post it in another queue(continuation).</li>
+<li>Workers can implement all or a partial set of actions, allowing granular scaling without hassle.</li>
+</ul><p>The decoupled nature of Orch.js will enable the implementation in other Programming Languages in the future, allowing the creation of distributed polyglot applications.</p>
+
+<h3>
+<a name="installation" class="anchor" href="#installation"><span class="octicon octicon-link"></span></a>Installation</h3>
+
+<pre><code>$ npm install orch orch-amqp
 </code></pre>
 
-<p>If you're using the GitHub for Mac, simply sync your repository and you'll see the new branch.</p>
+<h3>
+<a name="usage" class="anchor" href="#usage"><span class="octicon octicon-link"></span></a>Usage</h3>
+
+<p>The next examples assume you are using <a href="https://github.com/bithavoc/node-orch-amqp">orch-amqp</a> and <a href="http://www.rabbitmq.com/">RabbitMQ</a>.</p>
+
+<h4>
+<a name="client-creating-tasks" class="anchor" href="#client-creating-tasks"><span class="octicon octicon-link"></span></a>Client: Creating Tasks</h4>
+
+<p>In order to run operations, you need to use a Client. The client will create the tasks for you. </p>
+
+<p>The following example shows how to start a task with two initial actions. It will perform 'generate_message' followed by 'print':</p>
+
+<pre><code>// Generate a Message and then Print it.
+client.run('generate_message', {
+    message: "Hello %s",
+    name: "John Doe"
+}, 'print'); // The result of 'generate_message' will be the input of 'print'.
+</code></pre>
+
+<p>See full source code at: <a href="https://github.com/bithavoc/node-orch/blob/master/examples/hello_world_client.js">examples/hello_world_client.js</a></p>
+
+<p><em>print</em> doesn't need an input. the result of 'generate_message' will be input in the future.</p>
+
+<p>Once you run the client app, you will see how Orch.js prepared all the necessary queues and posted the task.</p>
+
+<p><img src="https://raw.github.com/bithavoc/node-orch/master/examples/images/generate_message_queue_list.png" alt="generate_message queue in rabbitmq"></p>
+
+<p>Orch will create durable queues, even if you restart RabbitMQ you will still have your messages waiting to be processed any worker that implements the operation.</p>
+
+<p>Now we need to implement the operations.</p>
+
+<h4>
+<a name="workers-implementing-operations" class="anchor" href="#workers-implementing-operations"><span class="octicon octicon-link"></span></a>Workers: Implementing Operations</h4>
+
+<p>Operations are implemented as functions along with the action to respond. Each worker can implement one or more actions.</p>
+
+<p><strong>Worker #0</strong>. This worker implements the operation <em>generate_message</em>:</p>
+
+<pre><code>worker.register('generate_message', function generateMessage(context) {
+  console.log("(Worker: Processing generate_message)");
+  context.success({
+    msg: util.format(context.input.message, context.input.name)
+  }, 'SUCCESS', 'Message has been generated');
+});
+</code></pre>
+
+<p>See full source code at: <a href="https://github.com/bithavoc/node-orch/blob/master/examples/hello_world_generate_message.js">examples/hello_world_generate_message.js</a></p>
+
+<p>Once you run this worker, you will see how another queue was created to hold the task now needing to perform the print.</p>
+
+<p><img src="https://raw.github.com/bithavoc/node-orch/master/examples/images/print_queues_list.png" alt="print queue in rabbitmq"></p>
+
+<p><strong>Worker #1</strong>: This worker implements the operation <em>print</em>:</p>
+
+<pre><code>worker.register('print', function print(context) {
+  console.log("(Worker: Processing print)");
+  console.log("Print: %s", context.input.msg);
+  context.success(null, 'SUCCESS', 'Message has been printed');
+});
+</code></pre>
+
+<p>See full source code at: <a href="https://github.com/bithavoc/node-orch/blob/master/examples/hello_world_print.js">examples/hello_world_print.js</a></p>
+
+<p>Once you run this second worker, the last action of the task is completed and the task is considered done.</p>
+
+<p><img src="https://raw.github.com/bithavoc/node-orch/master/examples/images/print_empty.png" alt="queues empty in rabbitmq"></p>
+
+<p>The output for the second worker would be:</p>
+
+<pre><code>(Worker: Processing print)
+Print: Hello John Doe
+</code></pre>
+
+<p>Of course this is just an example, nothing this simple requires such distributed execution, Orch.js is intended to be used for distribution of heavy/cpu-bound operations that should not be performed in the main web server.</p>
+
+<h4>
+<a name="callbacks-and-deferred-results" class="anchor" href="#callbacks-and-deferred-results"><span class="octicon octicon-link"></span></a>Callbacks and Deferred Results</h4>
+
+<p>An operation may often run nested actions before providing a final result, this is called deferred results. Callbacks receive the result of the nested operation and then provide the final result for the main operation.</p>
+
+<p>Example: Because string formatting is an operation that can be reused easily, with the help of callbacks we can refactor our Hello World to as follows:</p>
+
+<pre><code>-&gt; generate_message             // defer the result to format_string
+   -&gt; format_string             // nested call
+-&gt; generate_message#formatted   // callback generates deferred result
+-&gt; print                        // receives deferred result
+</code></pre>
+
+<p>This is how we implement it:</p>
+
+<pre><code>// Operation: generate_message
+var generateMessage = worker.register('generate_message', function generateMessage(context) {
+  console.log("(Worker: Processing generate_message)");
+  context.defer('format_string', {
+    format: context.input.message,
+    value: context.input.name
+  }, 'formatted');
+});
+
+// Callback: generate_message#formatted
+generateMessage.callback('formatted', function formatted(context) {
+  context.success({
+    msg: context.result.str
+  }, 'SUCCESS', 'Message has been generated');
+});
+
+// Operation: format_string
+worker.register('format_string', function formatString(context) {
+  console.log("(Worker: Processing format_string)");
+  context.success({
+    str: util.format(context.input.format, context.input.value)
+  }, 'SUCCESS', 'Message has been formatted');
+});
+
+// Operation: print
+worker.register('print', function print(context) {
+  console.log("(Worker: Processing print)");
+  console.log("Print: %s", context.input.msg);
+  context.success(null, 'SUCCESS', '');
+});
+</code></pre>
+
+<p>See full source code at: <a href="https://github.com/bithavoc/node-orch/blob/master/examples/deferred_worker.js">examples/deferred_worker.js</a></p>
+
+<p>Worker Output:</p>
+
+<pre><code>(Worker: Processing generate_message)
+(Worker: Processing format_string)
+(Worker: Processing print)
+Print: Hello John Doe
+</code></pre>
+
+<h4>
+<a name="error-handling" class="anchor" href="#error-handling"><span class="octicon octicon-link"></span></a>Error Handling</h4>
+
+<p>You can use <code>context.fail</code> to immediately report errors as result.</p>
+
+<pre><code>// Callback: generate_message#formatted
+generateMessage.callback('formatted', function formatted(context) {
+  if (context.status.code != 'SUCCESS') {
+    // here we handle the error of 'format_string'.
+    return context.success({
+      msg: "Houston, Internal Application Error!"
+    }, 'ERROR', "Some error came up");
+  }
+  context.complete({
+    msg: context.result.str
+  });
+});
+
+// Operation: format_string
+worker.register('format_string', function formatString(context) {
+  console.log("(Worker: Processing format_string)");
+  if (!context.input.format) {
+    return context.retry(new Error('The format string is not valid'), 'INVALID_FORMAT_STRING');
+  }
+  context.complete({
+    str: util.format(context.input.format, context.input.value)
+  });
+});
+</code></pre>
+
+<p>See full source code at: <a href="https://github.com/bithavoc/node-orch/blob/master/examples/errors_worker.js">examples/errors_worker.js</a></p>
+
+<p>Worker output:</p>
+
+<pre><code>(Worker: Processing generate_message)
+(Worker: Processing format_string)
+(Worker: Processing print)
+Print: Houston, Internal Application Error!
+</code></pre>
+
+<p>The error structure contains:</p>
+
+<ul>
+<li>msg (String)</li>
+<li>stack (String)</li>
+<li>code (String)</li>
+</ul><p><strong>Note:</strong> All operations can receive errors instead of a regular input, however, error handling only makes sense inside callbacks.</p>
+
+<h4>
+<a name="error-retry" class="anchor" href="#error-retry"><span class="octicon octicon-link"></span></a>Error Retry</h4>
+
+<p>Some of errors are caused due unavailability of external resources and can be retried later when they are available. To specify the number of times you want to retry in case of certain error, you can use <code>ActionMeta.retry</code> at the moment you register the operation and <code>context.retry</code> in the implementation of the action:</p>
+
+<pre><code>// Operation: format_string
+worker.register('format_string', function formatString(context) {
+  console.log("(Worker: Processing format_string)");
+  if (!context.input.format) {
+    return context.retry(new Error('The format string is not valid'), 'INVALID_FORMAT_STRING');
+  }
+  context.complete({
+    str: util.format(context.input.format, context.input.value)
+  });
+}).retry('INVALID_FORMAT_STRING', 3);
+</code></pre>
+
+<p>When the retry limit is reached, <code>context.fail</code> will be called for you.</p>
+
+<p>See full source code at: <a href="https://github.com/bithavoc/node-orch/blob/master/examples/retry_worker.js">examples/retry_worker.js</a></p>
+
+<p>Worker output:</p>
+
+<pre><code>(Worker: Processing generate_message)
+(Worker: Processing format_string)
+(Worker: Processing format_string)
+(Worker: Processing format_string)
+(Worker: Processing print)
+Print: Houston, Internal Application Error!
+</code></pre>
+
+<h4>
+<a name="sharing-variables-between-callbacks" class="anchor" href="#sharing-variables-between-callbacks"><span class="octicon octicon-link"></span></a>Sharing variables between Callbacks</h4>
+
+<p><code>contexts.vars</code> is the dictionary containing all the values shared between the main operation and the callbacks. Since the implementation function is bound to <code>context.vars</code>, you can also use <code>this</code> to set whatever variable you need.</p>
+
+<pre><code>...
+// Operation: generate_message
+var generateMessage = worker.register('generate_message', function generateMessage(context) {
+  // set variable req_time, we will use it in the callbacks.
+  this.req_time = new Date().toString();
+  console.log("(Worker: Processing generate_message)");
+  context.defer('format_string', {
+    format: context.input.message,
+    value: context.input.name
+  }, 'formatted');
+})
+...
+// Callback: generate_message#formatted
+generateMessage.callback('formatted', function(context) {
+  // here we use the variable req_time
+  context.success({
+    msg: context.result.str + " " + this.req_time
+  }, 'SUCCESS', 'Completed!');
+});
+</code></pre>
+
+<p>Just like inputs and results, the variables need to be JSON friendly since they are serialized within the task document.</p>
+
+<h4>
+<a name="performing-distributed-rpc-calls" class="anchor" href="#performing-distributed-rpc-calls"><span class="octicon octicon-link"></span></a>Performing Distributed RPC Calls</h4>
+
+<p>You can wait for a task to complete and get the results by performing the task in RPC mode.</p>
+
+<pre><code>...
+client.enableRpc = true;
+...
+// Generate a Message and then Print it.
+client.rpc('generate_message', {
+    message: "Hello %s",
+    name: "John Doe"
+  }, function rpcCompleted(err, context) {
+  assert.ifError(err);
+  console.log("Result", context.result);
+});
+</code></pre>
 
 <h3>
-<a name="designer-templates" class="anchor" href="#designer-templates"><span class="octicon octicon-link"></span></a>Designer Templates</h3>
+<a name="tests" class="anchor" href="#tests"><span class="octicon octicon-link"></span></a>Tests</h3>
 
-<p>We've crafted some handsome templates for you to use. Go ahead and continue to layouts to browse through them. You can easily go back to edit your page before publishing. After publishing your page, you can revisit the page generator and switch to another theme. Your Page content will be preserved if it remained markdown format.</p>
-
-<h3>
-<a name="rather-drive-stick" class="anchor" href="#rather-drive-stick"><span class="octicon octicon-link"></span></a>Rather Drive Stick?</h3>
-
-<p>If you prefer to not use the automatic generator, push a branch named <code>gh-pages</code> to your repository to create a page manually. In addition to supporting regular HTML content, GitHub Pages support Jekyll, a simple, blog aware static site generator written by our own Tom Preston-Werner. Jekyll makes it easy to create site-wide headers and footers without having to copy them across every page. It also offers intelligent blog support and other advanced templating features.</p>
+<pre><code>npm test
+</code></pre>
 
 <h3>
-<a name="authors-and-contributors" class="anchor" href="#authors-and-contributors"><span class="octicon octicon-link"></span></a>Authors and Contributors</h3>
+<a name="whats-next-todo" class="anchor" href="#whats-next-todo"><span class="octicon octicon-link"></span></a>What's next? (TODO)</h3>
 
-<p>You can <a href="https://github.com/blog/821" class="user-mention">@mention</a> a GitHub username to generate a link to their profile. The resulting <code>&lt;a&gt;</code> element will link to the contributor's GitHub Profile. For example: In 2007, Chris Wanstrath (<a href="https://github.com/defunkt" class="user-mention">@defunkt</a>), PJ Hyett (<a href="https://github.com/pjhyett" class="user-mention">@pjhyett</a>), and Tom Preston-Werner (<a href="https://github.com/mojombo" class="user-mention">@mojombo</a>) founded GitHub.</p>
+<ul>
+<li>Logging. A separate queue fed by AMQP Fanout exchange with bindings for all actions.</li>
+<li>Using the same logging mechanism, create a CLI tool to see the progress of a task across the queues. Breakpoints can be implemented as a pseudo-worker that takes the message without doing any ACK. We might need modify the specification to add a <em>taskId</em> property.</li>
+</ul><h2>
+<a name="license-mit" class="anchor" href="#license-mit"><span class="octicon octicon-link"></span></a>License (MIT)</h2>
 
-<h3>
-<a name="support-or-contact" class="anchor" href="#support-or-contact"><span class="octicon octicon-link"></span></a>Support or Contact</h3>
+<p>Copyright (c) 2012-2014 Bithavoc.com -  <a href="http://bithavoc.io">http://bithavoc.io</a></p>
 
-<p>Having trouble with Pages? Check out the documentation at <a href="http://help.github.com/pages">http://help.github.com/pages</a> or contact <a href="mailto:support@github.com">support@github.com</a> and we’ll help you sort it out.</p>
+<p>Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:</p>
+
+<p>The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.</p>
+
+<p>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.</p>
         </section>
 
         <aside id="sidebar">

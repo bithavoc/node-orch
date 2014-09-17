@@ -28,7 +28,7 @@ The decoupled nature of Orch.js will enable the implementation in other Programm
 
 ### Usage
 
-The next examples assume you are using [orch-amqp](https://github.com/firebaseco/node-orch-amqp) and [RabbitMQ](http://www.rabbitmq.com/).
+The next examples assume you are using [orch-amqp](https://github.com/bithavoc/node-orch-amqp) and [RabbitMQ](http://www.rabbitmq.com/).
 
 #### Client: Creating Tasks
 
@@ -42,13 +42,13 @@ The following example shows how to start a task with two initial actions. It wil
 		name: "John Doe"
 	}, 'print'); // The result of 'generate_message' will be the input of 'print'.
 
-See full source code at: [examples/hello\_world\_client.js](https://github.com/firebaseco/node-orch/blob/master/examples/hello_world_client.js)
+See full source code at: [examples/hello\_world\_client.js](https://github.com/bithavoc/node-orch/blob/master/examples/hello_world_client.js)
 
 *print* doesn't need an input. the result of 'generate_message' will be input in the future.
 
 Once you run the client app, you will see how Orch.js prepared all the necessary queues and posted the task.
 
-![generate_message queue in rabbitmq](https://raw.github.com/firebaseco/node-orch/master/examples/images/generate_message_queue_list.png)
+![generate_message queue in rabbitmq](https://raw.github.com/bithavoc/node-orch/master/examples/images/generate_message_queue_list.png)
 
 Orch will create durable queues, even if you restart RabbitMQ you will still have your messages waiting to be processed any worker that implements the operation.
 
@@ -67,11 +67,11 @@ Operations are implemented as functions along with the action to respond. Each w
 	  }, 'SUCCESS', 'Message has been generated');
 	});
 
-See full source code at: [examples/hello\_world\_generate\_message.js](https://github.com/firebaseco/node-orch/blob/master/examples/hello_world_generate_message.js)
+See full source code at: [examples/hello\_world\_generate\_message.js](https://github.com/bithavoc/node-orch/blob/master/examples/hello_world_generate_message.js)
 
 Once you run this worker, you will see how another queue was created to hold the task now needing to perform the print.
 
-![print queue in rabbitmq](https://raw.github.com/firebaseco/node-orch/master/examples/images/print_queues_list.png)
+![print queue in rabbitmq](https://raw.github.com/bithavoc/node-orch/master/examples/images/print_queues_list.png)
 
 **Worker #1**: This worker implements the operation *print*:
 
@@ -81,11 +81,11 @@ Once you run this worker, you will see how another queue was created to hold the
 	  context.success(null, 'SUCCESS', 'Message has been printed');
 	});
 
-See full source code at: [examples/hello\_world\_print.js](https://github.com/firebaseco/node-orch/blob/master/examples/hello_world_print.js)
+See full source code at: [examples/hello\_world\_print.js](https://github.com/bithavoc/node-orch/blob/master/examples/hello_world_print.js)
 
 Once you run this second worker, the last action of the task is completed and the task is considered done.
 
-![queues empty in rabbitmq](https://raw.github.com/firebaseco/node-orch/master/examples/images/print_empty.png)
+![queues empty in rabbitmq](https://raw.github.com/bithavoc/node-orch/master/examples/images/print_empty.png)
 
 The output for the second worker would be:
 
@@ -138,7 +138,7 @@ This is how we implement it:
 	});
 
 
-See full source code at: [examples/deferred\_worker.js](https://github.com/firebaseco/node-orch/blob/master/examples/deferred_worker.js)
+See full source code at: [examples/deferred\_worker.js](https://github.com/bithavoc/node-orch/blob/master/examples/deferred_worker.js)
 
 Worker Output:
 
@@ -175,7 +175,7 @@ You can use `context.fail` to immediately report errors as result.
 	  });
 	});
 
-See full source code at: [examples/errors\_worker.js](https://github.com/firebaseco/node-orch/blob/master/examples/errors_worker.js)
+See full source code at: [examples/errors\_worker.js](https://github.com/bithavoc/node-orch/blob/master/examples/errors_worker.js)
 
 Worker output:
 
@@ -209,7 +209,7 @@ Some of errors are caused due unavailability of external resources and can be re
 
 When the retry limit is reached, `context.fail` will be called for you.
 
-See full source code at: [examples/retry\_worker.js](https://github.com/firebaseco/node-orch/blob/master/examples/retry_worker.js)
+See full source code at: [examples/retry\_worker.js](https://github.com/bithavoc/node-orch/blob/master/examples/retry_worker.js)
 
 Worker output:
 
@@ -274,7 +274,7 @@ You can wait for a task to complete and get the results by performing the task i
 
 ## License (MIT)
 
-Copyright (c) 2012-2013 Heapsource.com -  http://www.heapsource.com
+Copyright (c) 2012-2014 Bithavoc.com -  http://bithavoc.io
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
 

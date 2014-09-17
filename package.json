@@ -1,13 +1,12 @@
 {
-  "author": "Heapsource.com <npm@heapsource.com> (http://www.heapsource.com/)",
+  "author": "Bithavoc <im@bithavoc.io> (http://bithavoc.io)",
   "name": "orch",
   "description": "Distributed RCP Orchestration Library for Node.js",
   "keywords": "RabbitMQ, AMQP, Queue, RPC, Distributed RPC, Distributed",
   "version": "0.1.3",
-  "homepage": "http://www.heapsource.com",
   "repository": {
     "type": "git",
-    "url": "git://github.com/heapsource/node-orch.git"
+    "url": "git://github.com/bithavoc/node-orch.git"
   },
   "main": "index.js",
   "scripts": {

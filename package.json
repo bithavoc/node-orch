@@ -3,7 +3,7 @@
   "name": "orch",
   "description": "Distributed RCP Orchestration Library for Node.js",
   "keywords": "RabbitMQ, AMQP, Queue, RPC, Distributed RPC, Distributed",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "repository": {
     "type": "git",
     "url": "git://github.com/bithavoc/node-orch.git"

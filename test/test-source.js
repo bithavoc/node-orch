@@ -62,7 +62,7 @@ function TestWorkerTasksSource() {
 util.inherits(TestWorkerTasksSource, TasksSource);
 
 TestWorkerTasksSource.prototype.onConnect = function onConnect(cb) {
-  return cb(null);
+  setTimeout(function() { cb(); }, 200);
 };
 
 TestWorkerTasksSource.prototype.onIssueQueue = function onIssueQueue(action, cb) {
